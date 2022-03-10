@@ -25,6 +25,12 @@ import numpy as np
 import cv2
 import time
 
+from GUI.gui import setup_gui, send_data
+
+window, canvas = setup_gui()
+window.update()
+
+
 """
 Start of:
 Reading input image
@@ -37,7 +43,7 @@ Reading input image
 # r'images\woman-working-in-the-office.jpg'
 # or:
 # 'images\\woman-working-in-the-office.jpg'
-image_BGR = cv2.imread('images/test3.jpg')
+image_BGR = cv2.imread('images/test1.jpg')
 
 # Showing Original Image
 # Giving name to the window with Original Image
@@ -306,6 +312,9 @@ num_replacements = 0
 
 confidence_counter = 0
 
+stick_tip_x, stick_tip_y, cue_stick_x, cue_stick_y = -1, -1, -1, -1
+stick_coords = [-1, -1, -1, -1]
+
 def replace_low_confidences(conf_list):
     max_conf = 0
     for curr_list in conf_list:
@@ -381,6 +390,27 @@ if len(results) > 0:
             print('width = %f' % norm_boxwidth)  # x_center
             print('height = %f' % norm_boxheight)  # x_center
 
+            if ((labels[int(class_numbers[i])]) == 'stick-tip'):
+                stick_tip_x = norm_xcenter
+                stick_tip_y = norm_ycenter
+            elif ((labels[int(class_numbers[i])]) == 'cue-stick'):
+                cue_stick_x = norm_xcenter
+                cue_stick_y = norm_ycenter
+
+            stick_coords = [cue_stick_x, cue_stick_y, stick_tip_x, stick_tip_y]
+
+            # Send Data
+            send_data(
+                labels[int(class_numbers[i])],
+                norm_xcenter,
+                norm_ycenter,
+                norm_boxwidth,
+                norm_boxheight,
+                stick_coords,
+                window,
+                canvas,
+            )
+
         if ((len(results) - 1) == i):
             num_replacements = len(temp_confidences) - 1
             replace_low_confidences(temp_confidences)
@@ -451,6 +481,18 @@ if len(results) > 0:
                     print('y_center = %f' % norm_ycenter)  # x_center
                     print('width = %f' % norm_boxwidth)  # x_center
                     print('height = %f' % norm_boxheight)  # x_center
+
+                    # Send Data
+                    send_data(
+                        labels[int(class_numbers[val[0]])],
+                        norm_xcenter,
+                        norm_ycenter,
+                        norm_boxwidth,
+                        norm_boxheight,
+                        stick_coords,
+                        window,
+                        canvas,
+                    )
 
                 counter += 1
 

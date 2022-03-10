@@ -27,6 +27,12 @@ import numpy as np
 import cv2
 import time
 
+# from GUI_v1.gui import setup_gui, send_data
+from GUI.setup import setup_gui
+from GUI.main import send_data
+
+window, canvas = setup_gui()
+window.update()
 
 """
 Start of:
@@ -76,7 +82,7 @@ with open('yolo-coco-data/classes.names') as f:
 # 'yolo-coco-data\\yolov3.cfg'
 # 'yolo-coco-data\\yolov3.weights'
 network = cv2.dnn.readNetFromDarknet('yolo-coco-data/yolov3_custom_train.cfg',
-                                     'yolo-coco-data/yolov3_custom_train_10000.weights')
+                                     'yolo-coco-data/yolov3_custom_train_test.weights')
 
 # Getting list with names of all layers from YOLO v3 network
 layers_names_all = network.getLayerNames()
@@ -95,7 +101,7 @@ layers_names_output = \
 # print(layers_names_output)  # ['yolo_82', 'yolo_94', 'yolo_106']
 
 # Setting minimum probability to eliminate weak predictions
-probability_minimum = 0.5
+probability_minimum = 0
 
 # Setting threshold for filtering weak bounding boxes
 # with non-maximum suppression
@@ -134,6 +140,9 @@ def replace_low_confidences(conf_list):
 
     return conf_list
 
+iteration = 0
+stick_coords = [-1, -1, -1, -1]
+stick_tip_x, stick_tip_y, cue_stick_x, cue_stick_y = -1, -1, -1, -1
 # Defining loop for catching frames
 while True:
     # Capturing frame-by-frame from camera
@@ -280,6 +289,10 @@ while True:
         for i in results.flatten():
             # Showing labels of the detected objects
             # print("\nObject {0}: {1} Normalized components:".format(counter, labels[int(class_numbers[i])]))
+            if (labels[int(class_numbers[i])] == 'pool-table'):
+                #just go to next iteration for now
+                continue
+
             if (labels[int(class_numbers[i])] == 'cue-ball'):
                 print(confidences[i])
                 temp_confidences.append([i, confidences[i]])
@@ -295,8 +308,6 @@ while True:
             # print('test: y_min={0}'.format(y_min/h))
             # print('test: box_height={0}'.format(box_height / h))
 
-            # for whatever reason, xmin and ymin are defined as the top left coordinate of the box.
-            # Simply put, xmin,ymin for top left corner would be 0,0 and bottom right corner would be w,h
             # print('y_center = %f' % detected_objects[1])  # y_center
             # print('box_width = %f' % detected_objects[2])  #box_width
             # print('box_height = %f' % detected_objects[3])  #box_height
@@ -328,9 +339,31 @@ while True:
                             cv2.FONT_HERSHEY_COMPLEX, 0.7, colour_box_current, 2)
 
                 norm_xcenter = (x_min + (box_width / 2)) / w
-                norm_ycenter = (((y_min) + (box_height / 2)) / h)  # 1 - bc of the notes above
+                norm_ycenter = (((y_min) + (box_height / 2)) / h)
                 norm_boxwidth = box_width / w
                 norm_boxheight = box_height / h
+
+                if ((labels[int(class_numbers[i])]) == 'stick-tip'):
+                    stick_tip_x = norm_xcenter
+                    stick_tip_y = norm_ycenter
+                elif ((labels[int(class_numbers[i])]) == 'cue-stick'):
+                    cue_stick_x = norm_xcenter
+                    cue_stick_y = norm_ycenter
+
+                stick_coords = [cue_stick_x, cue_stick_y, stick_tip_x, stick_tip_y]
+
+                # Send Data
+                send_data(
+                    labels[int(class_numbers[i])],
+                    norm_xcenter,
+                    norm_ycenter,
+                    norm_boxwidth,
+                    norm_boxheight,
+                    stick_coords,
+                    window,
+                    canvas,
+                )
+
                 print('x_center = %f' % norm_xcenter)  # x_center
                 print('y_center = %f' % norm_ycenter)  # x_center
                 print('width = %f' % norm_boxwidth)  # x_center
@@ -369,7 +402,7 @@ while True:
                                     cv2.FONT_HERSHEY_COMPLEX, 0.7, colour_box_current, 2)
 
                         norm_xcenter = (temp_x_min + (temp_box_width / 2)) / w
-                        norm_ycenter = (((temp_y_min) + (temp_box_height / 2)) / h)  # 1 - bc of the notes above
+                        norm_ycenter = (((temp_y_min) + (temp_box_height / 2)) / h)
                         norm_boxwidth = temp_box_width / w
                         norm_boxheight = temp_box_height / h
                         print('x_center = %f' % norm_xcenter)  # x_center
@@ -403,10 +436,22 @@ while True:
                         norm_ycenter = (((temp_y_min) + (temp_box_height / 2)) / h)  # 1 - bc of the notes above
                         norm_boxwidth = temp_box_width / w
                         norm_boxheight = temp_box_height / h
+                        # Send Data
+                        print("gypsy wanker")
                         print('x_center = %f' % norm_xcenter)  # x_center
                         print('y_center = %f' % norm_ycenter)  # x_center
                         print('width = %f' % norm_boxwidth)  # x_center
                         print('height = %f' % norm_boxheight)  # x_center
+                        send_data(
+                            labels[int(class_numbers[val[0]])],
+                            norm_xcenter,
+                            norm_ycenter,
+                            norm_boxwidth,
+                            norm_boxheight,
+                            stick_coords,
+                            window,
+                            canvas,
+                        )
 
                     counter += 1
     """
@@ -425,6 +470,10 @@ while True:
     # Giving name to the window with current frame
     # And specifying that window is resizable
     cv2.namedWindow('YOLO v3 Real Time Detections', cv2.WINDOW_NORMAL)
+    if iteration == 0:
+        cv2.moveWindow('YOLO v3 Real Time Detections', 2000, 100)
+        iteration += 1
+
     # Pay attention! 'cv2.imshow' takes images in BGR format
     cv2.imshow('YOLO v3 Real Time Detections', frame)
 
@@ -457,5 +506,5 @@ cv2.VideoCapture(0)
 To capture video, it is needed to create VideoCapture object.
 Its argument can be camera's index or name of video file.
 Camera index is usually 0 for built-in one.
-Try to select other cameras by passing 1, 2, 3, etc.
+Try to select other cameras by passing 1, 2, 3, etc.![](images/test4.jpg)
 """
