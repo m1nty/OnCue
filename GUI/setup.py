@@ -42,7 +42,7 @@ def make_spotlight(canvas, x1, y1, target_radius, cue):
             tags="cue_ball",
         )
     else:
-        id = "target_ball" + str(settings.num_targ_balls)
+        id = "target_ball" + str(settings.num_targ_spotlights)
         print("making spotlight, ", id)
         spotlight = canvas.create_oval(
             x1*settings.w - target_radius,
@@ -53,7 +53,7 @@ def make_spotlight(canvas, x1, y1, target_radius, cue):
             width=3,
             tags=id,
         )
-        settings.num_targ_balls += 1
+        settings.num_targ_spotlights += 1
     return spotlight
 
 

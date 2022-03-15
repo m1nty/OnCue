@@ -136,47 +136,73 @@ def normal_line(canvas, w, h, x1, y1, x2, y2):
     else:
         canvas.coords("projection-line", w*x1, h*y1, w*x2, h*y2)
 
-def oblique_line(l, d, canvas, w, h, theta, x0, y0, x1, y1, x2, y2):
-    #(x0, y0) -> cue (x1,y1) -> target (x2, y2) -> end base line
+def find_slope_v(target_x, target_y, endL_x, endL_y, phi, L_magn):
+    diff_x = endL_x - target_x
+    diff_y = endL_y - target_y
+
+    new_phi = np.arctan(diff_y/diff_x) - phi
+    # print("test find_slope_v", new_phi, diff_x, diff_y, np.tan(new_phi))
+    return np.tan(new_phi)
+
+
+def oblique_line(l, d, canvas, w, h, theta, x_w, y_w, x_t, y_t, base_end_x, base_end_y, end_x, end_y):
+    #(x_w, y_w) -> cue (x_t,y_t) -> target (base_end_x, base_end_y) -> end base line (end_x, end_y) -> End of target line
     #Need this line going from target ball to a wall, at an angle φ = θ − sin−1((p + 1) sin θ), where p = l/2r. Theta is in rads
     p = float(l/d)
-    phi = theta - np.arcsin((p+1)*np.sin(theta))
-    print("test phi", phi, theta*180/np.pi, p, phi*180/np.pi)
+    phi = theta - np.arcsin(np.clip((p + 1) * np.sin(theta), -1.0, 1.0))
+    phi_deg = phi*180/np.pi
+    print("test phi", phi, theta*180/np.pi, p, phi_deg)
 
-    # Method 1: Finds magnitude of line from cue ball to base_end_x and base_end_y. x0, y0 is cue ball. x1, y1 is end points of base line
-    a = np.array((x1, y1))
-    b = np.array((x2, y2))
-    print("pre L_magn", a, b)
+    a = np.array((x_t, y_t))
+    b = np.array((base_end_x, base_end_y))
     L_magn = np.linalg.norm(b - a)
 
-    X_magn = L_magn*np.cos(phi)
-    Y_magn = L_magn*np.sin(phi)
+    # The below calculates the slope of the new v vector, which is from the target ball to a wall depending on phi (angle between L and v vector)
+    m_v = find_slope_v(x_t, y_t, base_end_x, base_end_y, phi, L_magn)
+    m_L, b_L = get_slope(x_t, y_t, base_end_x, base_end_y)
+    b_v = x_t*(m_L - m_v) + b_L
+    m_u, b_u = get_slope(x_w, y_w, end_x, end_y)
+    x_c = (b_v - b_u)/(m_u-m_v)
+    y_c = (m_u*x_c) + b_u
+    end_x3, end_y3 = get_new_laser_coordinates(x_c, y_c, x_t, y_t)
+
+    print("Creating oblique laser", "cue = ", x_w, y_w, "target = ", x_t, y_t, "base end = ",base_end_x, base_end_y, "calc points = ", end_x3, end_y3, "end = ", end_x, end_y, "slope_v", m_v)
+
+    #This block of shit doesn't really work
+    # if phi_deg > 0:
+    #     X_magn = abs(L_magn*np.cos(phi))
+    #     Y_magn = abs(L_magn*np.sin(phi))
+    # else:
+    #     Y_magn = abs(L_magn*np.cos(phi))
+    #     X_magn = abs(L_magn*np.sin(phi))
 
     #X_magn = sqrt((x2-x0)^2 + (y2-y0)^2), Y_magn = sqrt((x2-x1)^2 + (y2-y1)^2). 2 equations, 2 unknowns, need to solve for x2, y2
     #This is a mangled formula I got from wolfram alpha
-    c = (x1*(-np.power(X_magn, 2) + np.power(Y_magn, 2) + np.power(x1, 2) - np.power(x2, 2)))/(x1-x2)
-    d = np.power((-np.power(X_magn, 2) + np.power(Y_magn, 2) + np.power(x1,2) - np.power(x2,2)),2)/(4*np.power(x1-x2,2))
-    # print("gyp", X_magn, Y_magn,c ,d, x0 , y0, L_magn)
-    y3 = 0.5*(2*np.sqrt([abs((np.power(X_magn,2) - np.power(x1,2) + c - d))]) + 2*y1)
-    # x3 doesn't require index idk why
-    x3 = np.sqrt(abs(np.power(Y_magn,2) - np.power(y3[0]-y2,2))) + x2
+    # if phi_deg < 0:
+    #     c = (x1*(-np.power(X_magn, 2) + np.power(Y_magn, 2) + np.power(x1, 2) - np.power(x2, 2)))/(x1-x2)
+    #     d = np.power((-np.power(X_magn, 2) + np.power(Y_magn, 2) + np.power(x1,2) - np.power(x2,2)),2)/(4*np.power(x1-x2,2))
+    #     # # print("gyp", X_magn, Y_magn,c ,d, x0 , y0, L_magn)
+    #     y3 = 0.5*(2*np.sqrt([abs((np.power(X_magn,2) - np.power(x1,2) + c - d))]) + 2*y1)
+    #     # # x3 doesn't require index idk why
+    #     x3 = np.sqrt(abs(np.power(Y_magn,2) - np.power(y3[0]-y2,2))) + x2
+    # else:
+    #     c = (x2*(-np.power(X_magn, 2) + np.power(Y_magn, 2) + np.power(x2, 2) - np.power(x1, 2)))/(x2-x1)
+    #     d = np.power((-np.power(X_magn, 2) + np.power(Y_magn, 2) + np.power(x2,2) - np.power(x1,2)),2)/(4*np.power(x2-x1,2))
+    #     y3 = 0.5*(2*np.sqrt([abs((np.power(X_magn,2) - np.power(x2,2) + c - d))]) + 2*y2)
+    #     x3 = np.sqrt(abs(np.power(Y_magn,2) - np.power(y3[0]-y1,2))) + x1
 
-    end_x3, end_y3 = get_new_laser_coordinates(x1, y1, x3, y3[0])
-    print("Creating oblique laser", "cue = ", x0, y0,  "target = ", x1, y1, "base end = ",x2, y2, "calc points = ",x3, y3[0])
-    print("Magnitudes, X_magn = ", X_magn, "Y_magn = ", Y_magn, "L_magn = ", L_magn)
     if settings.num_lasers <= 4:
-        make_laser(canvas, w*x1, h*y1, w*end_x3, h*end_y3, "projection-line")
+        make_laser(canvas, w*x_t, h*y_t, w*end_x3, h*end_y3, "projection-line")
     else:
-        canvas.coords("projection-line", w*x1, h*y1, w*end_x3, h*end_y3)
+        canvas.coords("projection-line", w*x_t, h*y_t, w*end_x3, h*end_y3)
 
-
-def projection_line(l, canvas, w, h, x0, y0, x1, y1, x2, y2, x3, y3):
+def projection_line(l, canvas, w, h, x_w, y_w, x_t, y_t, end_x, end_y, base_end_x, base_end_y):
     #All coords are from 0 to 1 and correspond to the following
-    #(x0, y0) -> cue, (x1, y1) -> target ball, (x2, y2) -> end_x, end_y. (x3, y3) -> base_end_x, base_end_y
+    #(x_w, y_w) -> cue, (x_t, y_t) -> target ball, (end_x, end_y) -> end_x, end_y. (base_end_x, base_end_y) -> base_end_x, base_end_y
     d = cue_radius + target_radius
     theta_crit = np.arcsin(d/(l+d))
-    u_vector = (x2-x0, y2-y0)
-    L_vector = (x3-x0, y3-y0)
+    u_vector = (end_x-x_w, end_y-y_w)
+    L_vector = (base_end_x-x_w, base_end_y-y_w)
     # need to determine when theta should be negative
     theta_rad = angle_between(u_vector, L_vector)
     print("test theta1", theta_crit, theta_rad)
@@ -191,12 +217,12 @@ def projection_line(l, canvas, w, h, x0, y0, x1, y1, x2, y2, x3, y3):
     print("test theta69", theta_rad*180/np.pi, p, phi*180/np.pi)
 
     # normal collision, just draw the base line
-    if (theta_deg > -5) and (theta_deg < 5):
-        normal_line(canvas, w, h, x1, y1, x2, y2)
+    if (theta_deg > -3) and (theta_deg < 3):
+        normal_line(canvas, w, h, x_t, y_t, end_x, end_y)
     # elif theta_deg == theta_crit:
     #     tangential_line(canvas, w, h, theta_rad, )
     else:
-        oblique_line(l, d, canvas, w, h, theta_rad, x0, y0, x1, y1, x3, y3)
+        oblique_line(l, d, canvas, w, h, theta_rad, x_w, y_w, x_t, y_t, base_end_x, base_end_y, end_x, end_y)
 
 def move_laser(window, w, h, canvas, mid_x, mid_y, tip_x, tip_y):
     global x_cue, y_cue, cue_radius, spotlight_radius, target_radius, x_target, y_target
@@ -219,12 +245,12 @@ def move_laser(window, w, h, canvas, mid_x, mid_y, tip_x, tip_y):
               settings.num_lasers, target_radius, cue_radius)
         #Draw another laser coming out of the cue ball
         #must calculate the new x1 and y1 based on y = mx + b formula
-        does_intersect_target_ball, x1_tg_inter, y1_tg_inter, x2_tg_inter, y2_tg_inter = does_circle_intersect(x2_cue_inter, y2_cue_inter, end_x, end_y, 2*target_radius, x_target, y_target)
+        does_collide_target_ball, x1_tg_inter, y1_tg_inter, x2_tg_inter, y2_tg_inter = does_circle_intersect(x2_cue_inter, y2_cue_inter, end_x, end_y, 1.8*target_radius, x_target, y_target)
         is_cue_stick_alligned, x1_temp, y1_temp, x2_temp, y2_temp = does_circle_intersect(x2_cue_inter, y2_cue_inter, end_x, end_y, 0.25*cue_radius, x_cue, y_cue)
-        print(is_cue_stick_alligned, does_intersect_target_ball)
+        print(is_cue_stick_alligned, does_collide_target_ball)
 
         #Regardless of intersection, need to draw that line from center of cue ball to end point
-        if not does_intersect_target_ball:
+        if not does_collide_target_ball:
             x1 = w * (x2_cue_inter)
             y1 = h * (y2_cue_inter)
             x2 = w * end_x
@@ -238,6 +264,10 @@ def move_laser(window, w, h, canvas, mid_x, mid_y, tip_x, tip_y):
                 canvas.delete("base-line")
                 canvas.delete("projection-line")
                 settings.num_lasers = 3
+
+            if settings.num_targ_spotlights != 0:
+                canvas.delete("target_ball" + str(settings.num_targ_spotlights - 1))
+                settings.num_targ_spotlights = 0
         else:
             #Need to swap x1 and y1 cuz of how does_circle_intersect compares the intersections. That's why its x2_tg and y2_tg
             x1 = w * (x2_cue_inter)
@@ -259,6 +289,11 @@ def move_laser(window, w, h, canvas, mid_x, mid_y, tip_x, tip_y):
                     b = np.array((x_target, y_target))
                     l_distance = abs(np.linalg.norm(a-b) - cue_radius - target_radius)
                     projection_line(l_distance, canvas, w, h, x_cue, y_cue, x_target, y_target, end_x, end_y, base_end_x, base_end_y)
+                else:
+                    if settings.num_lasers == 5:
+                        canvas.delete("base-line")
+                        canvas.delete("projection-line")
+                        settings.num_lasers = 3
         #Create laser if there isn't one
         if settings.num_lasers == 2:
             make_laser(canvas, x1, y1, x2, y2, 0)
@@ -302,27 +337,27 @@ def send_data(label, x1, y1, w1, h1, stick_coords, window, canvas):
         print("TARGET_BALL Detected", stick_coords)
         target_radius = float((float(h1 / 2) + float(w1 / 2)) /2)
         target_spot_radius = target_radius * settings.h
-        x_target, y_target = x1, y1
         does_collide_target_ball = False
         does_intersect_cue_ball = False
         if -1 not in stick_coords:
             does_intersect_cue_ball, x1_tg_inter, y1_tg_inter, x2_tg_inter, y2_tg_inter = does_circle_intersect(stick_coords[0], stick_coords[1], stick_coords[2], stick_coords[3], cue_radius, x_cue, y_cue)
-            does_collide_target_ball, x1_tg_inter, y1_tg_inter, x2_tg_inter, y2_tg_inter = does_circle_intersect(stick_coords[0], stick_coords[1], stick_coords[2], stick_coords[3], target_radius*2, x_target, y_target)
+            does_collide_target_ball, x1_tg_inter, y1_tg_inter, x2_tg_inter, y2_tg_inter = does_circle_intersect(stick_coords[0], stick_coords[1], stick_coords[2], stick_coords[3], target_radius*1.8, x1, y1)
+        print("gyper", settings.num_targ_spotlights,  does_collide_target_ball, does_intersect_cue_ball)
         if does_intersect_cue_ball and does_collide_target_ball:
+            x_target, y_target = x1, y1
             #Determine if ball is already a spotlight
-            print("gyper", settings.num_targ_balls)
-            if settings.num_targ_balls == 0:
+            if settings.num_targ_spotlights == 0:
                 print("Test movement1", x_target, y_target, target_spot_radius)
                 make_spotlight(canvas, x_target, y_target, target_spot_radius, False)
             else:
                 print("Test movement2", x, y, target_spot_radius)
-                move_spotlight(window, canvas, x, y, target_spot_radius, "target_ball" + str(settings.num_targ_balls - 1))
+                move_spotlight(window, canvas, x, y, target_spot_radius, "target_ball" + str(settings.num_targ_spotlights - 1))
         else:
-            # need to account for case where ball is being detected, but not intersecting and there is already a ball intersecting
-            if settings.num_targ_balls != 0:
-                print("deleting target ball and projection/base lasers", settings.num_targ_balls)
-                canvas.delete("target_ball" + str(settings.num_targ_balls - 1))
+             # need to account for case where ball is being detected, but not intersecting and there is already a ball intersecting
+            if settings.num_targ_spotlights == 0:
+                print("deleting target ball and projection/base lasers", settings.num_targ_spotlights, x_target, y_target)
                 canvas.delete("base-line")
                 canvas.delete("projection-line")
                 settings.num_lasers = 3
-                settings.num_targ_balls = 0
+                canvas.delete("target_ball" + str(settings.num_targ_spotlights - 1))
+                settings.num_targ_spotlights = 0
