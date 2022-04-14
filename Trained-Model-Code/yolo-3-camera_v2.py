@@ -101,7 +101,7 @@ layers_names_output = \
 # print(layers_names_output)  # ['yolo_82', 'yolo_94', 'yolo_106']
 
 # Setting minimum probability to eliminate weak predictions
-probability_minimum = 0
+probability_minimum = 0.5
 
 # Setting threshold for filtering weak bounding boxes
 # with non-maximum suppression
@@ -270,7 +270,6 @@ while True:
     End of:
     Non-maximum suppression
     """
-
     """
     Start of:
     Drawing bounding boxes and labels
@@ -300,7 +299,7 @@ while True:
                                                          temp_confidences[confidence_counter]))
                 confidence_counter += 1
 
-            # Getting current bounding box coordinates,
+            # Getteing current bounding box coordinates,
             # its width and height
             x_min, y_min = bounding_boxes[i][0], bounding_boxes[i][1]
             box_width, box_height = bounding_boxes[i][2], bounding_boxes[i][3]
@@ -369,91 +368,89 @@ while True:
                 print('width = %f' % norm_boxwidth)  # x_center
                 print('height = %f' % norm_boxheight)  # x_center
 
-            if ((len(results) - 1) == i):
-                num_replacements = len(temp_confidences) - 1
-                replace_low_confidences(temp_confidences)
-                print(temp_confidences)
-                for val in temp_confidences:
-                    temp_x_min, temp_y_min = bounding_boxes[val[0]][0], bounding_boxes[val[0]][1]
-                    temp_box_width, temp_box_height = bounding_boxes[val[0]][2], bounding_boxes[val[0]][3]
+            #Start of 'joel's' code:
+            num_replacements = len(temp_confidences) - 1
+            replace_low_confidences(temp_confidences)
+            for val in temp_confidences:
+                temp_x_min, temp_y_min = bounding_boxes[val[0]][0], bounding_boxes[val[0]][1]
+                temp_box_width, temp_box_height = bounding_boxes[val[0]][2], bounding_boxes[val[0]][3]
 
-                    if val[1] == 0:
-                        class_numbers[val[0]] = 1  # this changes the appropriate class identifier (index #)
-                        print("\nObject {0}: {1} Normalized components:".format(counter,
+                if val[1] == 0:
+                    class_numbers[val[0]] = 1  # this changes the appropriate class identifier (index #)
+                    print("\nObject {0}: {1} Normalized components:".format(counter,
                                                                                 labels[int(class_numbers[val[0]])]))
-                        colour_box_current = colours[class_numbers[val[0]]].tolist()
+                    colour_box_current = colours[class_numbers[val[0]]].tolist()
 
-                        # # # Check point
-                        # print(type(colour_box_current))  # <class 'list'>
-                        # print(colour_box_current)  # [172 , 10, 127]
-                        # Drawing bounding box on the original image
-                        cv2.rectangle(frame, (temp_x_min, temp_y_min),
-                                      (temp_x_min + temp_box_width, temp_y_min + temp_box_height),
-                                      colour_box_current, 2)
+                    # # # Check point
+                    # print(type(colour_box_current))  # <class 'list'>
+                    # print(colour_box_current)  # [172 , 10, 127]
+                    # Drawing bounding box on the original image
+                    cv2.rectangle(frame, (temp_x_min, temp_y_min),
+                                    (temp_x_min + temp_box_width, temp_y_min + temp_box_height),
+                                    colour_box_current, 2)
 
-                        labels[int(class_numbers[val[0]])] = 'target-ball'
+                    labels[int(class_numbers[val[0]])] = 'target-ball'
 
-                        # Preparing text with label and confidence for current bounding box
-                        text_box_current = '{}: {:.4f}'.format(labels[int(class_numbers[val[0]])],
+                    # Preparing text with label and confidence for current bounding box
+                    text_box_current = '{}: {:.4f}'.format(labels[int(class_numbers[val[0]])],
                                                                confidences[val[0]])
 
-                        # Putting text with label and confidence on the original image
-                        cv2.putText(frame, text_box_current, (temp_x_min, temp_y_min - 5),
+                    # Putting text with label and confidence on the original image
+                    cv2.putText(frame, text_box_current, (temp_x_min, temp_y_min - 5),
                                     cv2.FONT_HERSHEY_COMPLEX, 0.7, colour_box_current, 2)
 
-                        norm_xcenter = (temp_x_min + (temp_box_width / 2)) / w
-                        norm_ycenter = (((temp_y_min) + (temp_box_height / 2)) / h)
-                        norm_boxwidth = temp_box_width / w
-                        norm_boxheight = temp_box_height / h
-                        print('x_center = %f' % norm_xcenter)  # x_center
-                        print('y_center = %f' % norm_ycenter)  # x_center
-                        print('width = %f' % norm_boxwidth)  # x_center
-                        print('height = %f' % norm_boxheight)  # x_center
+                    norm_xcenter = (temp_x_min + (temp_box_width / 2)) / w
+                    norm_ycenter = (((temp_y_min) + (temp_box_height / 2)) / h)
+                    norm_boxwidth = temp_box_width / w
+                    norm_boxheight = temp_box_height / h
+                    print('x_center = %f' % norm_xcenter)  # x_center
+                    print('y_center = %f' % norm_ycenter)  # x_center
+                    print('width = %f' % norm_boxwidth)  # x_center
+                    print('height = %f' % norm_boxheight)  # x_center
 
-                    else:
-                        print("\nObject {0}: {1} Normalized components:".format(counter,
+                else:
+                    print("\nObject {0}: {1} Normalized components:".format(counter,
                                                                                 labels[int(class_numbers[val[0]])]))
-                        labels[int(class_numbers[val[0]])] = 'cue-ball'
-                        colour_box_current = colours[class_numbers[val[0]]].tolist()
+                    labels[int(class_numbers[val[0]])] = 'cue-ball'
+                    colour_box_current = colours[class_numbers[val[0]]].tolist()
 
-                        # # # Check point
-                        # print(type(colour_box_current))  # <class 'list'>
-                        # print(colour_box_current)  # [172 , 10, 127]
-                        # Drawing bounding box on the original image
-                        cv2.rectangle(frame, (temp_x_min, temp_y_min),
-                                      (temp_x_min + temp_box_width, temp_y_min + temp_box_height),
-                                      colour_box_current, 2)
+                    # # # Check point
+                    # print(type(colour_box_current))  # <class 'list'>
+                    # print(colour_box_current)  # [172 , 10, 127]
+                    # Drawing bounding box on the original image
+                    cv2.rectangle(frame, (temp_x_min, temp_y_min),
+                                    (temp_x_min + temp_box_width, temp_y_min + temp_box_height),
+                                    colour_box_current, 2)
 
-                        # Preparing text with label and confidence for current bounding box
-                        text_box_current = '{}: {:.4f}'.format(labels[int(class_numbers[val[0]])],
+                    # Preparing text with label and confidence for current bounding box
+                    text_box_current = '{}: {:.4f}'.format(labels[int(class_numbers[val[0]])],
                                                                confidences[val[0]])
 
-                        # Putting text with label and confidence on the original image
-                        cv2.putText(frame, text_box_current, (temp_x_min, temp_y_min - 5),
-                                    cv2.FONT_HERSHEY_COMPLEX, 0.7, colour_box_current, 2)
+                    # Putting text with label and confidence on the original image
+                    cv2.putText(frame, text_box_current, (temp_x_min, temp_y_min - 5),
+                                cv2.FONT_HERSHEY_COMPLEX, 0.7, colour_box_current, 2)
 
-                        norm_xcenter = (temp_x_min + (temp_box_width / 2)) / w
-                        norm_ycenter = (((temp_y_min) + (temp_box_height / 2)) / h)  # 1 - bc of the notes above
-                        norm_boxwidth = temp_box_width / w
-                        norm_boxheight = temp_box_height / h
-                        # Send Data
-                        print("gypsy wanker")
-                        print('x_center = %f' % norm_xcenter)  # x_center
-                        print('y_center = %f' % norm_ycenter)  # x_center
-                        print('width = %f' % norm_boxwidth)  # x_center
-                        print('height = %f' % norm_boxheight)  # x_center
-                        send_data(
-                            labels[int(class_numbers[val[0]])],
-                            norm_xcenter,
-                            norm_ycenter,
-                            norm_boxwidth,
-                            norm_boxheight,
-                            stick_coords,
-                            window,
-                            canvas,
-                        )
+                    norm_xcenter = (temp_x_min + (temp_box_width / 2)) / w
+                    norm_ycenter = (((temp_y_min) + (temp_box_height / 2)) / h)  # 1 - bc of the notes above
+                    norm_boxwidth = temp_box_width / w
+                    norm_boxheight = temp_box_height / h
+                    # Send Data
+                    print('x_center = %f' % norm_xcenter)  # x_center
+                    print('y_center = %f' % norm_ycenter)  # x_center
+                    print('width = %f' % norm_boxwidth)  # x_center
+                    print('height = %f' % norm_boxheight)  # x_center
+                    send_data(
+                        labels[int(class_numbers[val[0]])],
+                        norm_xcenter,
+                        norm_ycenter,
+                        norm_boxwidth,
+                        norm_boxheight,
+                        stick_coords,
+                        window,
+                        canvas,
+                    )
 
-                    counter += 1
+                counter += 1
     """
     End of:
     Drawing bounding boxes and labels
@@ -471,7 +468,7 @@ while True:
     # And specifying that window is resizable
     cv2.namedWindow('YOLO v3 Real Time Detections', cv2.WINDOW_NORMAL)
     if iteration == 0:
-        cv2.moveWindow('YOLO v3 Real Time Detections', 2000, 100)
+        cv2.moveWindow('YOLO v3 Real Time Detections', -1500, 100)
         iteration += 1
 
     # Pay attention! 'cv2.imshow' takes images in BGR format

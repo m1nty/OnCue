@@ -15,9 +15,11 @@ def create_animation_window():
 
 # Create Spotlight Animation Canvas
 def spotlight_animation(window):
-    canvas = tk.Canvas(window)
-    canvas.configure(bg="#36594a")
+    canvas = tk.Canvas(window, highlightthickness=0)
+    # canvas.configure(bg="#36594a")
+    canvas.configure(bg="black")
     canvas.pack(fill="both", expand=True)
+    # Creates those rectangles on startup
     return canvas
 
 
@@ -38,7 +40,7 @@ def make_spotlight(canvas, x1, y1, target_radius, cue):
             settings.w / 5 + spotlight_radius,
             settings.h / 2 + spotlight_radius,
             outline="white",
-            width=3,
+            width=4,
             tags="cue_ball",
         )
     else:
@@ -49,18 +51,32 @@ def make_spotlight(canvas, x1, y1, target_radius, cue):
             y1*settings.w - target_radius,
             x1*settings.w + target_radius,
             y1*settings.w + target_radius,
-            outline="red",
-            width=3,
+            outline="#FF69B4",
+            width=4,
             tags=id,
         )
         settings.num_targ_spotlights += 1
     return spotlight
 
 
+# Make Pocket on Canvas
+def make_pocket(canvas, x, y, scale, ):
+    pocket = canvas.create_oval(
+        x - scale * spotlight_radius,
+        y - scale * spotlight_radius,
+        x + scale * spotlight_radius,
+        y + scale * spotlight_radius,
+        fill="white",
+        outline="white",
+        width=3,
+        tags="pocket",
+    )
+    return pocket
+
+
 # Make Laser on Canvas
 def make_laser(canvas, w1, h1, w2, h2, id):
     if id == "base-line" or id == "projection-line":
-        print("print2",id, )
         tag = id
     else:
         print("making laser:", settings.num_lasers)
@@ -69,9 +85,11 @@ def make_laser(canvas, w1, h1, w2, h2, id):
     if settings.num_lasers == 0 or settings.num_lasers == 1:
         temp_rad = spotlight_radius
         if settings.num_lasers == 0:
+            #cue stick yellow line
             color = "yellow"
         elif settings.num_lasers == 1:
             temp_rad = 0
+            #not centered white line
             color = "white"
 
         laser = canvas.create_line(
@@ -81,7 +99,7 @@ def make_laser(canvas, w1, h1, w2, h2, id):
             settings.h/2,
             fill=color,
             tags=tag,
-            width=1
+            width=3
             #dash=(5, 4)
         )
         settings.num_lasers += 1
@@ -91,7 +109,7 @@ def make_laser(canvas, w1, h1, w2, h2, id):
             color = "yellow"
         else:
             if id == "projection-line":
-                color = "pink"
+                color = "#CC0000"
             else:
                 color = "black"
         print("making new laser", settings.num_lasers, w1, h1, w2, h2, color)
@@ -102,7 +120,7 @@ def make_laser(canvas, w1, h1, w2, h2, id):
             h2,
             fill=color,
             tags=tag,
-            width=1
+            width=3
             #dash=(5, 4)
         )
         settings.num_lasers += 1
@@ -124,10 +142,19 @@ def move_spotlight(window, canvas, x, y, radius, id):
 # Instantiate GUI
 def setup_gui():
     window = create_animation_window()
-    settings.w, settings.h = window.winfo_screenwidth(), window.winfo_screenheight()
+    # settings.w, settings.h = window.winfo_screenwidth(), window.winfo_screenheight()
+    settings.w, settings.h = 1920*0.8*7/8, 1080*(4/5)*(9/8)
     canvas = spotlight_animation(window)
+    make_pocket(canvas, 0, 0, 2.1)
+    make_pocket(canvas, settings.w/2, 0, 1.7)
+    make_pocket(canvas, settings.w, 0, 2.1)
+    make_pocket(canvas, 0, settings.h, 2.1)
+    make_pocket(canvas, settings.w/2, settings.h, 1.7)
+    make_pocket(canvas, settings.w, settings.h, 2.1)
     make_spotlight(canvas, 0, 0, 0, True)
     #Make 2 lasers, one from tip of ball to end of table, second from center of cue ball to end of tip of first
     make_laser(canvas, settings.w, settings.h, 0, 0, 0)
     make_laser(canvas, settings.w, settings.h, 0, 0, 1)
+    canvas.create_rectangle(0, settings.h, 1920, 1080, outline="black", fill="black")
+    canvas.create_rectangle(settings.w, 0, 1920, 1080, outline="black", fill="black")
     return window, canvas

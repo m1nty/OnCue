@@ -291,6 +291,7 @@ while True:
     Drawing bounding boxes and labels
     """
 
+
     """
     Start of:
     Showing processed frames in OpenCV Window

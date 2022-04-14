@@ -79,8 +79,41 @@ def does_circle_intersect(mid_x, mid_y, tip_x, tip_y, r, x_cir, y_cir):
 
     return does_intersect, x_first_int, y_first_int, x_second_int, y_second_int
 
+# https://stackoverflow.com/questions/1073336/circle-line-segment-collision-detection-algorithm#:~:text=Then%20calculate%20the%20intersection%20point,voila%2C%20we%20have%20an%20intersection!
+def distanceSegmentToPoint(x1, y1, x2, y2, xc, yc):
+    # Compute vectors AC and AB
+    AC = (xc-x1, yc-y1)
+    AB = (x2-x1, y2-y1)
 
-def dump_does_circle_intersect(x1, y1, r, slope, y_int, tip_x):
+    # Get point D by taking the projection of AC onto AB then adding the offset of A
+    dot1 = AC[0]*AB[0]+AC[1]*AB[1]
+    dot2 = AB[0]*AB[0]+AB[1]*AB[1]
+    temp = dot1/dot2
+    D = (temp*AB[0] + x1, temp*AB[1] + y1)
+
+    AD = (D[0] - x1, D[1] - y1)
+    # D might not be on AB so calculate k of D down AB (aka solve AD = k * AB)
+    # We can use either component, but choose larger value to reduce the chance of dividing by zero
+    if abs(AB[0]) > abs(AB[1]):
+        k = AD[0]/AB[0]
+    else:
+        k = AD[1]/AB[1]
+
+    # Check if D is off either end of the line segment
+    if (k <= 0):
+        temp1 = (xc - x1, yc - y1)
+        dot = temp1[0] * temp1[0] + temp1[1] * temp1[1]
+        return np.sqrt(dot)
+    elif (k >= 1):
+        temp1 = (xc - x2, yc - y2)
+        dot = temp1[0] * temp1[0] + temp1[1] * temp1[1]
+        return np.sqrt(dot)
+
+    temp1 = (xc - D[0], yc - D[1])
+    dot = temp1[0] * temp1[0] + temp1[1] * temp1[1]
+    return np.sqrt(dot)
+
+def v1_does_circle_intersect(x1, y1, r, slope, y_int, tip_x):
     a = -2 * x1
     b = -2 * y1
     c = (r * r) - (x1 * x1) - (y1 * y1)
@@ -138,7 +171,7 @@ def dump_does_circle_intersect(x1, y1, r, slope, y_int, tip_x):
 
     return x_first_int, x_second_int, intersection
 
-def dump_get_new_laser_coordinates(mid_x, mid_y, tip_x, tip_y):
+def v1_get_new_laser_coordinates(mid_x, mid_y, tip_x, tip_y):
     wall = 0
     m, b = get_slope(mid_x, mid_y, tip_x, tip_y)
     # Set it to last m and b values, which are stored as global variable
@@ -158,7 +191,7 @@ def dump_get_new_laser_coordinates(mid_x, mid_y, tip_x, tip_y):
         #will point towards one of two walls, bottom or right
         case = 1
         ratio = (1-tip_x)/(1-tip_y)
-        wall = dump_get_wall(m, ratio, case)
+        wall = v1_get_wall(m, ratio, case)
         if wall == 4:
             print("bottom wall")
             return (1-b)/m, 1
@@ -172,7 +205,7 @@ def dump_get_new_laser_coordinates(mid_x, mid_y, tip_x, tip_y):
         # will point towards one of two walls, bottom or left
         case = 2
         ratio = -(tip_x)/(1-tip_y)
-        wall = dump_get_wall(m, ratio, case)
+        wall = v1_get_wall(m, ratio, case)
         if wall == 2:
             print("left wall")
             return 0, b
@@ -188,7 +221,7 @@ def dump_get_new_laser_coordinates(mid_x, mid_y, tip_x, tip_y):
         # will point towards one of two walls, top or right
         case = 3
         ratio = -(1-tip_x)/(tip_y)
-        wall = dump_get_wall(m, ratio, case)
+        wall = v1_get_wall(m, ratio, case)
         if wall == 1:
             print("top wall")
             return -b/m, 0
@@ -202,7 +235,7 @@ def dump_get_new_laser_coordinates(mid_x, mid_y, tip_x, tip_y):
         # will point towards one of two walls, top or left
         case = 4
         ratio = tip_x/tip_y
-        wall = dump_get_wall(m, ratio, case)
+        wall = v1_get_wall(m, ratio, case)
         if wall == 1:
             print("top wall")
             if m == 0:
@@ -213,7 +246,7 @@ def dump_get_new_laser_coordinates(mid_x, mid_y, tip_x, tip_y):
             return 0, b
     print("somethings fucked",tip_x, mid_x, tip_y, mid_y, wall)
 
-def dump_get_wall(slope, ratio, case_num):
+def v1_get_wall(slope, ratio, case_num):
     #top wall = 1, left wall = 2, right wall = 3, bottom wall = 4
     #bottom right
     if case_num == 1:

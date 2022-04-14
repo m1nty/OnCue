@@ -1,7 +1,8 @@
 import numpy as np
 from GUI import settings
-from GUI.calculations import get_slope, does_circle_intersect, unnormalize_coords, unit_vector, angle_between
+from GUI.calculations import get_slope, does_circle_intersect, unnormalize_coords, unit_vector, angle_between, distanceSegmentToPoint
 from GUI.setup import make_laser, make_spotlight
+import time
 
 CUE_STICK = "cue-stick"
 TARGET_BALL = "target-ball"
@@ -10,7 +11,7 @@ POOL_TABLE = "pool-table"
 STICK_TIP = "stick-tip"
 
 spotlight_radius = 40
-x_cue, y_cue, cue_radius, target_radius, target_spot_radius, x_target, y_target = 0, 0, 0, 0, 0, 0, 0
+x_cue, y_cue, cue_radius, target_radius, target_spot_radius, x_target, y_target, counter = 0, 0, 0, 0, 0, 0, 0, 0
 
 settings.init()
 
@@ -90,7 +91,8 @@ def get_new_laser_coordinates(mid_x, mid_y, tip_x, tip_y):
         print("case bottom right")
         #will point towards one of two walls, bottom or right
         case = "bottom_right"
-        return get_intersection_point(m, b, case)
+        x, y = get_intersection_point(m, b, case)
+        return x, y
 
 
     elif tip_x <= mid_x and tip_y >= mid_y:
@@ -98,21 +100,24 @@ def get_new_laser_coordinates(mid_x, mid_y, tip_x, tip_y):
         print("case bottom left")
         # will point towards one of two walls, bottom or left
         case = "bottom_left"
-        return get_intersection_point(m, b, case)
+        x, y = get_intersection_point(m, b, case)
+        return x, y
 
     elif tip_x >= mid_x and tip_y <= mid_y:
         #pointing towards top right, m-ve
         print("case top right")
         # will point towards one of two walls, top or right
         case = "top_right"
-        return get_intersection_point(m, b, case)
+        x, y = get_intersection_point(m, b, case)
+        return x, y
 
     elif tip_x <= mid_x and tip_y <= mid_y:
         #pointing towards top left, m+ve
         print("case top left")
         # will point towards one of two walls, top or left
         case = "top_left"
-        return get_intersection_point(m, b, case)
+        x, y = get_intersection_point(m, b, case)
+        return x, y
 
 # Move Spotlight to Track Cue Ball
 def move_spotlight(window, canvas, x, y, radius, id):
@@ -131,10 +136,17 @@ def base_line(canvas, x1, y1, x2, y2):
 #Need to make laser from target ball to wall.
 def normal_line(canvas, w, h, x1, y1, x2, y2):
     print("Creating normal laser", settings.num_lasers, x1, y1, x2, y2)
+    drainable = is_ball_drainable(x2, y2)
+    projection_line_color = "white" if drainable else "white"
+    fill = () if drainable else (5,50)
+    thickness = 4 if drainable else 6
+
     if settings.num_lasers <= 4:
         make_laser(canvas, w*x1, h*y1, w*x2, h*y2, "projection-line")
     else:
         canvas.coords("projection-line", w*x1, h*y1, w*x2, h*y2)
+
+    canvas.itemconfig("projection-line", fill=projection_line_color, dash=fill, width=thickness)
 
 def find_slope_v(target_x, target_y, endL_x, endL_y, phi, L_magn):
     diff_x = endL_x - target_x
@@ -143,7 +155,6 @@ def find_slope_v(target_x, target_y, endL_x, endL_y, phi, L_magn):
     new_phi = np.arctan(diff_y/diff_x) - phi
     # print("test find_slope_v", new_phi, diff_x, diff_y, np.tan(new_phi))
     return np.tan(new_phi)
-
 
 def oblique_line(l, d, canvas, w, h, theta, x_w, y_w, x_t, y_t, base_end_x, base_end_y, end_x, end_y):
     #(x_w, y_w) -> cue (x_t,y_t) -> target (base_end_x, base_end_y) -> end base line (end_x, end_y) -> End of target line
@@ -167,34 +178,19 @@ def oblique_line(l, d, canvas, w, h, theta, x_w, y_w, x_t, y_t, base_end_x, base
     end_x3, end_y3 = get_new_laser_coordinates(x_c, y_c, x_t, y_t)
 
     print("Creating oblique laser", "cue = ", x_w, y_w, "target = ", x_t, y_t, "base end = ",base_end_x, base_end_y, "calc points = ", end_x3, end_y3, "end = ", end_x, end_y, "slope_v", m_v)
+    print(end_x3, end_y3)
 
-    #This block of shit doesn't really work
-    # if phi_deg > 0:
-    #     X_magn = abs(L_magn*np.cos(phi))
-    #     Y_magn = abs(L_magn*np.sin(phi))
-    # else:
-    #     Y_magn = abs(L_magn*np.cos(phi))
-    #     X_magn = abs(L_magn*np.sin(phi))
-
-    #X_magn = sqrt((x2-x0)^2 + (y2-y0)^2), Y_magn = sqrt((x2-x1)^2 + (y2-y1)^2). 2 equations, 2 unknowns, need to solve for x2, y2
-    #This is a mangled formula I got from wolfram alpha
-    # if phi_deg < 0:
-    #     c = (x1*(-np.power(X_magn, 2) + np.power(Y_magn, 2) + np.power(x1, 2) - np.power(x2, 2)))/(x1-x2)
-    #     d = np.power((-np.power(X_magn, 2) + np.power(Y_magn, 2) + np.power(x1,2) - np.power(x2,2)),2)/(4*np.power(x1-x2,2))
-    #     # # print("gyp", X_magn, Y_magn,c ,d, x0 , y0, L_magn)
-    #     y3 = 0.5*(2*np.sqrt([abs((np.power(X_magn,2) - np.power(x1,2) + c - d))]) + 2*y1)
-    #     # # x3 doesn't require index idk why
-    #     x3 = np.sqrt(abs(np.power(Y_magn,2) - np.power(y3[0]-y2,2))) + x2
-    # else:
-    #     c = (x2*(-np.power(X_magn, 2) + np.power(Y_magn, 2) + np.power(x2, 2) - np.power(x1, 2)))/(x2-x1)
-    #     d = np.power((-np.power(X_magn, 2) + np.power(Y_magn, 2) + np.power(x2,2) - np.power(x1,2)),2)/(4*np.power(x2-x1,2))
-    #     y3 = 0.5*(2*np.sqrt([abs((np.power(X_magn,2) - np.power(x2,2) + c - d))]) + 2*y2)
-    #     x3 = np.sqrt(abs(np.power(Y_magn,2) - np.power(y3[0]-y1,2))) + x1
+    drainable = is_ball_drainable(end_x3, end_y3)
+    projection_line_color = "white" if drainable else "white"
+    fill = () if drainable else (5,50)
+    thickness = 4 if drainable else 6
 
     if settings.num_lasers <= 4:
         make_laser(canvas, w*x_t, h*y_t, w*end_x3, h*end_y3, "projection-line")
     else:
         canvas.coords("projection-line", w*x_t, h*y_t, w*end_x3, h*end_y3)
+
+    canvas.itemconfig("projection-line", fill=projection_line_color, dash=fill, width=thickness)
 
 def projection_line(l, canvas, w, h, x_w, y_w, x_t, y_t, end_x, end_y, base_end_x, base_end_y):
     #All coords are from 0 to 1 and correspond to the following
@@ -227,7 +223,6 @@ def projection_line(l, canvas, w, h, x_w, y_w, x_t, y_t, end_x, end_y, base_end_
 def move_laser(window, w, h, canvas, mid_x, mid_y, tip_x, tip_y):
     global x_cue, y_cue, cue_radius, spotlight_radius, target_radius, x_target, y_target
     new_x, new_y = get_new_laser_coordinates(mid_x, mid_y, tip_x, tip_y)
-    print(new_x, new_y)
     does_intersect_cue_ball, x1_cue_inter, y1_cue_inter, x2_cue_inter, y2_cue_inter = does_circle_intersect(mid_x, mid_y, tip_x, tip_y, cue_radius, x_cue, y_cue)
 
     if does_intersect_cue_ball:
@@ -241,12 +236,10 @@ def move_laser(window, w, h, canvas, mid_x, mid_y, tip_x, tip_y):
 
     #If there's a cue intersection, need to also check if that same line is intersecting with a target ball
     if does_intersect_cue_ball:
-        print("cucks",
-              settings.num_lasers, target_radius, cue_radius)
         #Draw another laser coming out of the cue ball
         #must calculate the new x1 and y1 based on y = mx + b formula
         does_collide_target_ball, x1_tg_inter, y1_tg_inter, x2_tg_inter, y2_tg_inter = does_circle_intersect(x2_cue_inter, y2_cue_inter, end_x, end_y, 1.8*target_radius, x_target, y_target)
-        is_cue_stick_alligned, x1_temp, y1_temp, x2_temp, y2_temp = does_circle_intersect(x2_cue_inter, y2_cue_inter, end_x, end_y, 0.25*cue_radius, x_cue, y_cue)
+        is_cue_stick_alligned, x1_temp, y1_temp, x2_temp, y2_temp = does_circle_intersect(x2_cue_inter, y2_cue_inter, end_x, end_y, 0.5*cue_radius, x_cue, y_cue)
         print(is_cue_stick_alligned, does_collide_target_ball)
 
         #Regardless of intersection, need to draw that line from center of cue ball to end point
@@ -260,7 +253,7 @@ def move_laser(window, w, h, canvas, mid_x, mid_y, tip_x, tip_y):
             if settings.num_lasers == 4:
                 canvas.delete("base-line")
                 settings.num_lasers = 3
-            elif settings.num_lasers == 5:
+            elif settings.num_lasers >= 4:
                 canvas.delete("base-line")
                 canvas.delete("projection-line")
                 settings.num_lasers = 3
@@ -284,13 +277,13 @@ def move_laser(window, w, h, canvas, mid_x, mid_y, tip_x, tip_y):
                 canvas.coords("base-line", w*x_cue, h*y_cue, w*x_target, h*y_target)
                 if is_cue_stick_alligned:
                     #Find the end points of the base line. Used to determine the projection vector
-                    base_end_x, base_end_y = get_new_laser_coordinates(x_cue, y_cue, x_target, y_target)
+                    base_end_x, base_end_y= get_new_laser_coordinates(x_cue, y_cue, x_target, y_target)
                     a = np.array((x_cue, y_cue))
                     b = np.array((x_target, y_target))
                     l_distance = abs(np.linalg.norm(a-b) - cue_radius - target_radius)
                     projection_line(l_distance, canvas, w, h, x_cue, y_cue, x_target, y_target, end_x, end_y, base_end_x, base_end_y)
                 else:
-                    if settings.num_lasers == 5:
+                    if settings.num_lasers >= 4:
                         canvas.delete("base-line")
                         canvas.delete("projection-line")
                         settings.num_lasers = 3
@@ -310,10 +303,57 @@ def move_laser(window, w, h, canvas, mid_x, mid_y, tip_x, tip_y):
     window.update()
 
 
+def is_ball_in_pocket(target_x, target_y, end_x3, end_y3):
+    corner_pocket_coords = [
+        [0, 0],
+        [settings.w, 0],
+        [0, settings.h],
+        [settings.w, settings.h],
+    ]
+
+    side_pocket_coords = [
+        [settings.w/2, 0],
+        [settings.w/2, settings.h],
+    ]
+
+    # norm_x = target_x*settings.w
+    # norm_y = target_y*settings.h
+    # distance = distanceSegmentToPoint(x_target, y_target, end_x3, end_y3, xc, yc)
+    # if distance <= pocket_radius:
+    #
+    #
+    #
+    # for pocket in side_pocket_coords:
+    #     if settings.w / 2 - spotlight_radius <= norm_x <= settings.w / 2 + spotlight_radius \
+    #             and settings.h / 2 - spotlight_radius <= norm_y <= settings.h / 2 + spotlight_radius:
+    #         return True
+
+
+def is_ball_drainable(end_x3, end_y3):
+    corner_pocket_coords = [
+        [0.05, 0.05],
+        [0.95, 0.05],
+        [0.05, 0.95],
+        [0.95, 0.95],
+    ]
+
+    side_pocket_coords = [
+        [0.5, 0.05],
+        [0.5, 0.95],
+    ]
+
+    for pocket in corner_pocket_coords:
+        if abs(end_x3 - pocket[0]) <= 2.1*target_radius and abs(end_y3 - pocket[1]) <= 2.1*target_radius:
+            return True
+
+    for pocket in side_pocket_coords:
+        if abs(end_x3 - pocket[0]) <= 2.1*target_radius and abs(end_y3 - pocket[1]) <= 2.1*target_radius:
+            return True
+
+
 def send_data(label, x1, y1, w1, h1, stick_coords, window, canvas):
     x, y = unnormalize_coords(x1, y1)
-    global x_cue, y_cue, cue_radius, spotlight_radius, target_radius, target_spot_radius, x_target, y_target
-
+    global x_cue, y_cue, cue_radius, spotlight_radius, target_radius, target_spot_radius, x_target, y_target, counter
     print("GUIGUI", label)
     if label == CUE_BALL:
         print("CUE_BALL Detected")
@@ -322,10 +362,16 @@ def send_data(label, x1, y1, w1, h1, stick_coords, window, canvas):
 
         x_cue = float(x / settings.w)
         y_cue = float(y / settings.h)
-        cue_radius = float((float(h1 / 2) + float(w1 / 2)) /2)
-        spotlight_radius = cue_radius * settings.h
+        test1 = float((float(h1 / 2) + float(w1 / 2)) /2)
+        test2 = cue_radius * settings.h
+        spotlight_radius = 44
+        cue_radius = 0.03528645833333333
         print(spotlight_radius,cue_radius)
         move_spotlight(window, canvas, x, y, spotlight_radius, "cue_ball")
+
+        # if settings.num_lasers == 2:
+        #     canvas.delete("laser1")
+        #     canvas.delete("laser2")
 
     elif label == CUE_STICK or label == STICK_TIP:
 
@@ -333,31 +379,53 @@ def send_data(label, x1, y1, w1, h1, stick_coords, window, canvas):
         if -1 not in stick_coords:
             move_laser(window, settings.w, settings.h, canvas, stick_coords[0], stick_coords[1], stick_coords[2], stick_coords[3])
 
-    if label == TARGET_BALL:
+    elif label == TARGET_BALL:
+        # if counter < 8:
+        #     counter += 1
+        # else:
+        #
+        #     counter = 0
+
+
         print("TARGET_BALL Detected", stick_coords)
-        target_radius = float((float(h1 / 2) + float(w1 / 2)) /2)
-        target_spot_radius = target_radius * settings.h
+        # target_radius = float((float(h1 / 2) + float(w1 / 2)) /2)
+        # target_spot_radius = target_radius * settings.h
+        target_spot_radius = 44
+        target_radius = 0.03528645833333333
         does_collide_target_ball = False
         does_intersect_cue_ball = False
         if -1 not in stick_coords:
             does_intersect_cue_ball, x1_tg_inter, y1_tg_inter, x2_tg_inter, y2_tg_inter = does_circle_intersect(stick_coords[0], stick_coords[1], stick_coords[2], stick_coords[3], cue_radius, x_cue, y_cue)
-            does_collide_target_ball, x1_tg_inter, y1_tg_inter, x2_tg_inter, y2_tg_inter = does_circle_intersect(stick_coords[0], stick_coords[1], stick_coords[2], stick_coords[3], target_radius*1.8, x1, y1)
-        print("gyper", settings.num_targ_spotlights,  does_collide_target_ball, does_intersect_cue_ball)
+            # this is cocked
+            new_x, new_y= get_new_laser_coordinates(stick_coords[0], stick_coords[1], stick_coords[2], stick_coords[3])
+            # base_end_x, base_end_y= get_new_laser_coordinates(x_cue, y_cue, x1, y1)
+            #does_collide_target_ball, x1_tg_inter, y1_tg_inter, x2_tg_inter, y2_tg_inter = does_circle_intersect(stick_coords[0], stick_coords[1], stick_coords[2], stick_coords[3], target_radius*1.8, x1, y1)
+            distance = distanceSegmentToPoint(stick_coords[2], stick_coords[3], new_x, new_y, x1, y1)
+            if distance <= target_radius*1.8:
+                does_collide_target_ball = True
+            else:
+                does_collide_target_ball = False
         if does_intersect_cue_ball and does_collide_target_ball:
             x_target, y_target = x1, y1
-            #Determine if ball is already a spotlight
+            print(x_target, y_target)
+
+            # Ball is in a pocket
+            # if not is_ball_in_pocket(x1, y1):
+                #Determine if ball is already a spotlight
             if settings.num_targ_spotlights == 0:
-                print("Test movement1", x_target, y_target, target_spot_radius)
-                make_spotlight(canvas, x_target, y_target, target_spot_radius, False)
+                    tempx, tempy = unnormalize_coords(x_target, y_target)
+                    print("Test movement1", tempx, tempy, target_spot_radius)
+                    make_spotlight(canvas, tempx, tempy, target_spot_radius, False)
             else:
-                print("Test movement2", x, y, target_spot_radius)
-                move_spotlight(window, canvas, x, y, target_spot_radius, "target_ball" + str(settings.num_targ_spotlights - 1))
+                    print("Test movement2", x, y, target_spot_radius)
+                    move_spotlight(window, canvas, x, y, target_spot_radius, "target_ball" + str(settings.num_targ_spotlights-1))
         else:
              # need to account for case where ball is being detected, but not intersecting and there is already a ball intersecting
-            if settings.num_targ_spotlights == 0:
+            if settings.num_targ_spotlights == 0 or (settings.num_targ_spotlights == 1 and not does_collide_target_ball and not does_intersect_cue_ball):
                 print("deleting target ball and projection/base lasers", settings.num_targ_spotlights, x_target, y_target)
-                canvas.delete("base-line")
-                canvas.delete("projection-line")
-                settings.num_lasers = 3
-                canvas.delete("target_ball" + str(settings.num_targ_spotlights - 1))
+                if settings.num_lasers >= 4:
+                    canvas.delete("base-line")
+                    canvas.delete("projection-line")
+                    settings.num_lasers = 3
+                canvas.delete("target_ball" + str(settings.num_targ_spotlights-1))
                 settings.num_targ_spotlights = 0
